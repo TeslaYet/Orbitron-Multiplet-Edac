@@ -1,0 +1,79 @@
+# Linux Compilation Instructions for Orbitron-ME
+
+## Compiling Multiplet2
+
+1. Navigate to the Multiplet2/RPES/src directory:
+```bash
+cd Multiplet2/RPES/src
+```
+
+2. Create a Linux compile script:
+```bash
+echo 'gfortran -c labla.f ; gcc -c *.c ; gfortran *.o -o multiplet -llapack -lblas' > compile_linux
+chmod +x compile_linux
+```
+
+3. Run the compile script:
+```bash
+./compile_linux
+```
+
+4. Copy the executable to the RPES directory:
+```bash
+cp multiplet ..
+```
+
+## Compiling EDAC and Visualization Tools
+
+1. Navigate to the Edac 2 directory:
+```bash
+cd "Edac 2"
+```
+
+2. Compile the EDAC source with .exe extension for Linux:
+```bash
+# IMPORTANT: On Linux we need the .exe extension
+g++ -O2 edac.cpp -o edac.exe
+```
+
+3. Compile the visualization tools:
+```bash
+# Compile intens_stereo_hot for hot colormap visualization
+gcc -O2 intens_stereo_hot.c -o intens_stereo_hot -lm
+
+# Compile intens_stereo_rb for red-blue colormap visualization
+gcc -O2 intens_stereo_rb.c -o intens_stereo_rb -lm
+```
+
+Note: This naming convention is intentional - on macOS the executable should be named "edac", but on Linux it needs to be "edac.exe" for the GUI to work correctly.
+
+## Setting up the Python Environment
+
+1. Create a virtual environment:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+2. Install required packages:
+```bash
+pip install PyQt6
+```
+
+3. Run the GUI:
+```bash
+cd Multiplet2/RPES
+python multiplet_gui.py
+```
+
+## Note on Dependencies
+
+For Debian/Ubuntu-based systems, you may need to install these dependencies:
+```bash
+sudo apt-get install gfortran gcc g++ python3-dev liblapack-dev libblas-dev
+```
+
+For RedHat/Fedora-based systems:
+```bash
+sudo dnf install gfortran gcc g++ python3-devel lapack-devel blas-devel
+``` 

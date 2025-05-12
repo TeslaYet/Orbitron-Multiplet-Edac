@@ -1,0 +1,30 @@
+double *calloc1double(int n1) ;
+double **calloc2double(int n1, int n2) ;
+double ***calloc3double(int n1, int n2, int n3) ;
+double ****calloc4double(int n1, int n2, int n3, int n4) ;
+float *calloc1float(int n1) ;
+float **calloc2float(int n1, int n2) ;
+float ***calloc3float(int n1, int n2, int n3) ;
+float ****calloc4float(int n1, int n2, int n3, int n4) ;
+int *calloc1int(int n1) ;
+int **calloc2int(int n1, int n2) ;
+int ***calloc3int(int n1, int n2, int n3) ;
+int ****calloc4int(int n1, int n2, int n3, int n4) ;
+void free1double(double *p) ;
+void free2double(int n1, double **p) ;
+void free3double(int n1, int n2, double ***p) ;
+void free4double(int n1, int n2, int n3, double ****p) ;
+void free1float(float *p) ;
+void free2float(int n1, float **p) ;
+void free3float(int n1, int n2, float ***p) ;
+void free4float(int n1, int n2, int n3, float ****p) ;
+void free1int(int *p) ;
+void free2int(int n1, int **p) ;
+void free3int(int n1, int n2, int ***p) ;
+void free4int(int n1, int n2, int n3, int ****p) ;
+complex ****calloc4cplx(int n1, int n2, int n3, int n4) ;
+void free4cplx(int n1, int n2, int n3, complex ****p) ;
+/*
+double complex ****calloc4doublecplx(int n1, int n2, int n3, int n4) ;
+void free4doublecplx(int n1, int n2, int n3, double complex ****p) ;
+*/

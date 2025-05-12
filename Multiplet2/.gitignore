@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+
+# Fortran/C build artifacts
+*.o
+*.mod
+*.exe
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Application specific
+*.log
+*.dat
+!RPES/pes.dat
+!RPES/peslm.dat
+!RPES/rpes.dat
+!RPES/rpesalms.dat
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo 

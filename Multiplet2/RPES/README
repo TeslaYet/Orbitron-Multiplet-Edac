@@ -1,0 +1,44 @@
+(1) How to compile and run the code.
+
+go into ./src
+compile the source code with the script
+./compile
+you may change the compile script omitting labla.f and linking to your Lapack library
+
+the executable ("multiplet") can be run interactively, but this is very difficult to understand.
+A sample input file is "multiplet_input.txt", so you may run
+./multiplet < multiplet_input.txt
+See the file "multiplet_input.commented" for the meaning of the entries
+
+(2) The example "Output" was obtained as follows:
+
+mkdir Output ; cd Output 
+../src/multiplet < ../multiplet_input.txt 
+
+The important output file is "rpesalms.dat".
+It contains the (resonant) photoelectron wave amplitudes "A"
+The data is organized as follows
+1st line: nomega ngst nfst nlms
+loop 1,nomega
+  omega
+  loop 1,ngst 
+    gstweight
+    loop 1,fst
+      Ef
+      loop 1,nlms 
+         Re{A(q=-1)} Im{A(q=-1)} Re{A(q=0)} Im{A(q=0)} Re{A(q=1)} Im{A(q=1)}
+
+where
+ nomega is the number of omega (photon energy) point in the scan
+ ngst is the degeneracy of the ground state
+ nfst is the number of final state multiplet states "f" without the photoelectron
+      For a (3d^n) ground state, these are the 2p^6 3d^{n-1} multiplets
+
+q=-1,0,1 are 3 different light polarizations (helicity -1, z-pol and helicity +1)
+gstweight is the statistical weight of the (degenerate) ground state
+In this implementation gstweight = 1./ngst
+so that degenerate ground states are averaged over.
+
+A are the complex photoelectron amplitudes
+
+PK 2025/2/20

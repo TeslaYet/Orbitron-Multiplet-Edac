@@ -1,0 +1,1 @@
+gfortran -c labla.f ; gcc -c *.c ; gfortran *.o -o multiplet -framework Accelerate

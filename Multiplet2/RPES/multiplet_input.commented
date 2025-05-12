@@ -1,0 +1,41 @@
+-639 -1.e-6                     # E(2p)   E(3d)
+-0.024 0.    0.   -0.056 0.     # cystral field matrix (cplx sph.harm)
+ 0.    0.064 0.    0.    0.056  # acting on 3d orbitals |l=2,ml>
+ 0.    0.   -0.177 0.    0.     # ordered as ml= -2,-1,0,1,2
+-0.056 0.    0.    0.064 0.     # routines with other C.F. representations
+ 0.    0.056 0.    0.   -0.024  # are available but not in this "distribution"
+ 1.e-3 90.                      # B-field (eV) and theta (in deg) B=B(cos(theta),0,sin(theta)) 
+651.8  651.8   2. 0.4 0         # omega_start, omega_stop, delta_omega, Gamma (intermed.state width) 0
+5                               # number of d-electrons
+1 2 1 3 5                       # l-values of "active" atomic shells here 2p,3d and continuum np,nf,nh
+6.846  0.040 0 0 0              # zeta (SOC-parameter) of active shells
+2.064  0.02161  0.09695         # el.dipole radial matrix elements <2p|r|3d> <3d|r|np> <3d|r|nf>
+1                               # number of ground state electronic configurations
+6 5 0 0 0                       # occupation numbers. Here (2p^6, 3d^5, np^0,nf^0,nh^0)
+0 0 5.0568                      # Slater-Condon parameters F_k(2p,3d) k=0,1,2
+0 3.6848 0 2.0936               # G_k(2p,3d) k=0,1,2,3  
+0 0 5.0568                      # F_k(2p,3d) k=0,1,2
+0 0 5.0568                      # F_k(2p,3d) k=0,1,2
+0 3.6848 0 2.0936               # G_k(2p,3d) k=0,1,2,3
+0 0 9.4752 0 5.9256             # F_k(3d,3d) k=0,1,2,3,4   
+1                               # number of final state electronic configurations (without photoelectron)
+6 4 0 0 0                       # occupation numbers. Here (2p^6, 3d^4, np^0,nf^0,nh^0)
+0 0 5.0568                      # Slater-Condon parameters (as before)
+0 3.6848 0 2.0936
+0 0 5.0568
+0 0 5.0568
+0 3.6848 0 2.0936
+0 0 9.4752 0 5.9256
+1                               # number of intermediate state electronic configurations
+5 6  0 0 0                      # occupation numbers. Here (2p^5, 3d^6, np^0,nf^0,nh^0)
+0 0 5.0568                      # Slater-Condon parameters (as before)
+0 3.6848 0 2.0936              
+0 0 5.0568
+0 0 5.0568
+0 3.6848 0 2.0936
+0 0 8.9240 0 5.5528
+0. -.19047  0. -.15644          # Auger decay integrals,  R_k(2p,np;3d,3d) k=0,1,2,3
+0. 0.7079   0. 0.44937          # R_k(2p,nf;3d,3d)
+0. 0.       0. 0.28778          # R_k(2p,nh;3d,3d)
+                                # here, all atomic parameters are taken from Tanaka&Jo,JPSJ 1994
+                                # crystal field matrix from Hariki et al, PRL 132, 176701 (2024) S.M.III
