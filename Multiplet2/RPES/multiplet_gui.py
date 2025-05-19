@@ -55,21 +55,24 @@ class MultipletGUI(QMainWindow):
         self.run_tab = QWidget()
         self.convert_tab = QWidget()
         self.edac_tab = QWidget()
-        self.viz_tab = QWidget()  # New visualization tab
+        self.viz_tab = QWidget()
+        self.cluster_tab = QWidget()  # New cluster creator tab
         
         # Add tabs to widget
         self.tabs.addTab(self.input_tab, "Create Input")
         self.tabs.addTab(self.run_tab, "Run Multiplet")
         self.tabs.addTab(self.convert_tab, "Convert Output")
         self.tabs.addTab(self.edac_tab, "Run EDAC")
-        self.tabs.addTab(self.viz_tab, "Visualization")  # Add new tab
+        self.tabs.addTab(self.viz_tab, "Visualization")
+        self.tabs.addTab(self.cluster_tab, "Cluster Creator")  # Add new tab
         
         # Set up each tab
         self.setup_input_tab()
         self.setup_run_tab()
         self.setup_convert_tab()
         self.setup_edac_tab()
-        self.setup_viz_tab()  # Setup the new visualization tab
+        self.setup_viz_tab()
+        self.setup_cluster_tab()  # Setup the new cluster tab
     
     def setup_input_tab(self):
         # Main layout
@@ -856,7 +859,7 @@ class MultipletGUI(QMainWindow):
             self, 
             "Select Cluster File", 
             self.edac_dir_path.text() if self.edac_dir_path.text() else os.path.dirname(os.path.abspath(__file__)),
-            "Cluster Files (*.clus)"
+            "Cluster Files (*.clus *.ms);;All Files (*)"
         )
         if file_path:
             self.edac_cluster_path.setText(file_path)
@@ -939,10 +942,19 @@ class MultipletGUI(QMainWindow):
             
             self.edac_console_output.append(f"Copying {rpesalms_edac} to {edac_target}")
             try:
-                shutil.copy2(rpesalms_edac, edac_target)
+                # Check if source and destination are the same file
+                if os.path.abspath(rpesalms_edac) == os.path.abspath(edac_target):
+                    # Create a temporary copy first, then replace the original
+                    temp_path = os.path.join(os.getcwd(), "temp_rpesalms.edac")
+                    shutil.copy2(rpesalms_edac, temp_path)
+                    os.remove(edac_target)
+                    os.rename(temp_path, edac_target)
+                else:
+                    # Regular copy
+                    shutil.copy2(rpesalms_edac, edac_target)
                 self.edac_console_output.append("File copied successfully")
             except Exception as e:
-                self.edac_console_output.append(f"Error copying rpesalms.edac file: {e}")
+                self.edac_console_output.append(f"Error handling rpesalms.edac file: {e}")
                 os.chdir(original_dir)  # Return to original directory
                 self.run_edac_button.setEnabled(True)
                 return
@@ -954,10 +966,19 @@ class MultipletGUI(QMainWindow):
             
             self.edac_console_output.append(f"Copying {cluster_file} to {cluster_target}")
             try:
-                shutil.copy2(cluster_file, cluster_target)
+                # Check if source and destination are the same file
+                if os.path.abspath(cluster_file) == os.path.abspath(cluster_target):
+                    # Create a temporary copy first, then replace the original
+                    temp_path = os.path.join(os.getcwd(), f"temp_{cluster_filename}")
+                    shutil.copy2(cluster_file, temp_path)
+                    os.remove(cluster_target)
+                    os.rename(temp_path, cluster_target)
+                else:
+                    # Regular copy
+                    shutil.copy2(cluster_file, cluster_target)
                 self.edac_console_output.append("File copied successfully")
             except Exception as e:
-                self.edac_console_output.append(f"Error copying cluster file: {e}")
+                self.edac_console_output.append(f"Error handling cluster file: {e}")
                 os.chdir(original_dir)  # Return to original directory
                 self.run_edac_button.setEnabled(True)
                 return
@@ -1374,6 +1395,526 @@ class MultipletGUI(QMainWindow):
         else:
             self.image_label.setText(f"Cannot load image: {image_path}")
             self.viz_status_label.setText(f"Status: Failed to load image: {image_path}")
+
+    def setup_cluster_tab(self):
+        """Setup the cluster creator tab for generating crystal cluster structures"""
+        layout = QVBoxLayout()
+        
+        # Scrollable area for all inputs
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_content = QWidget()
+        form_layout = QVBoxLayout(scroll_content)
+        
+        # Lattice vectors
+        lattice_group = QGroupBox("Lattice Vectors")
+        lattice_layout = QGridLayout()
+        
+        self.lattice_vectors = []
+        for i in range(3):
+            row = []
+            lattice_layout.addWidget(QLabel(f"a{i} vector:"), i, 0)
+            for j in range(3):
+                value = QLineEdit("0.0")
+                if i == j:  # Set diagonal to default values
+                    value.setText("3.52")
+                row.append(value)
+                lattice_layout.addWidget(value, i, j+1)
+            self.lattice_vectors.append(row)
+        
+        # Common lattice presets
+        preset_layout = QHBoxLayout()
+        preset_layout.addWidget(QLabel("Lattice Presets:"))
+        self.lattice_preset = QComboBox()
+        self.lattice_preset.addItems(["Custom", "FCC", "BCC", "Diamond", "Hexagonal"])
+        self.lattice_preset.currentIndexChanged.connect(self.apply_lattice_preset)
+        preset_layout.addWidget(self.lattice_preset)
+        preset_layout.addStretch()
+        
+        lattice_layout.addLayout(preset_layout, 3, 0, 1, 4)
+        lattice_group.setLayout(lattice_layout)
+        form_layout.addWidget(lattice_group)
+        
+        # Miller indices
+        miller_group = QGroupBox("Surface Orientation")
+        miller_layout = QHBoxLayout()
+        
+        miller_layout.addWidget(QLabel("Miller Indices (h k l):"))
+        self.miller_indices = []
+        for i in range(3):
+            value = QLineEdit("1" if i == 0 else "0")
+            self.miller_indices.append(value)
+            miller_layout.addWidget(value)
+        
+        # Common surface presets
+        miller_layout.addWidget(QLabel("Presets:"))
+        self.surface_preset = QComboBox()
+        self.surface_preset.addItems(["Custom", "(100)", "(110)", "(111)", "(211)"])
+        self.surface_preset.currentIndexChanged.connect(self.apply_surface_preset)
+        miller_layout.addWidget(self.surface_preset)
+        
+        miller_group.setLayout(miller_layout)
+        form_layout.addWidget(miller_group)
+        
+        # Origin
+        origin_group = QGroupBox("Origin Coordinates")
+        origin_layout = QHBoxLayout()
+        
+        origin_layout.addWidget(QLabel("Origin (reduced coords):"))
+        self.origin_coords = []
+        for i in range(3):
+            value = QLineEdit("0.0")
+            self.origin_coords.append(value)
+            origin_layout.addWidget(value)
+        
+        origin_group.setLayout(origin_layout)
+        form_layout.addWidget(origin_group)
+        
+        # Basis atoms
+        basis_group = QGroupBox("Basis Atoms")
+        basis_layout = QVBoxLayout()
+        
+        basis_controls = QHBoxLayout()
+        self.num_basis_atoms = QSpinBox()
+        self.num_basis_atoms.setRange(1, 10)
+        self.num_basis_atoms.setValue(1)
+        self.num_basis_atoms.valueChanged.connect(self.update_basis_table)
+        basis_controls.addWidget(QLabel("Number of basis atoms:"))
+        basis_controls.addWidget(self.num_basis_atoms)
+        
+        # Common basis presets
+        basis_controls.addWidget(QLabel("Presets:"))
+        self.basis_preset = QComboBox()
+        self.basis_preset.addItems(["Custom", "Monatomic", "NaCl", "ZnS"])
+        self.basis_preset.currentIndexChanged.connect(self.apply_basis_preset)
+        basis_controls.addWidget(self.basis_preset)
+        basis_controls.addStretch()
+        
+        basis_layout.addLayout(basis_controls)
+        
+        # Table for basis atoms
+        self.basis_table = QTableWidget(1, 4)
+        self.basis_table.setHorizontalHeaderLabels(["Element", "x", "y", "z"])
+        self.basis_table.horizontalHeader().setStretchLastSection(True)
+        self.basis_table.setItem(0, 0, QTableWidgetItem("Ni"))
+        self.basis_table.setItem(0, 1, QTableWidgetItem("0.0"))
+        self.basis_table.setItem(0, 2, QTableWidgetItem("0.0"))
+        self.basis_table.setItem(0, 3, QTableWidgetItem("0.0"))
+        
+        basis_layout.addWidget(self.basis_table)
+        basis_group.setLayout(basis_layout)
+        form_layout.addWidget(basis_group)
+        
+        # Cluster parameters
+        cluster_group = QGroupBox("Cluster Shape")
+        cluster_layout = QGridLayout()
+        
+        # Lattice constant
+        self.lattice_constant = QLineEdit("3.52")
+        cluster_layout.addWidget(QLabel("Lattice constant (Å):"), 0, 0)
+        cluster_layout.addWidget(self.lattice_constant, 0, 1)
+        
+        # Ellipsoid parameters
+        self.radius = QLineEdit("20.0")
+        cluster_layout.addWidget(QLabel("Ellipsoid radius (Å):"), 1, 0)
+        cluster_layout.addWidget(self.radius, 1, 1)
+        
+        self.depth = QLineEdit("20.0")
+        cluster_layout.addWidget(QLabel("Ellipsoid depth (Å):"), 2, 0)
+        cluster_layout.addWidget(self.depth, 2, 1)
+        
+        self.zsurf = QLineEdit("10.0")
+        cluster_layout.addWidget(QLabel("Surface z cutoff (Å):"), 3, 0)
+        cluster_layout.addWidget(self.zsurf, 3, 1)
+        
+        cluster_group.setLayout(cluster_layout)
+        form_layout.addWidget(cluster_group)
+        
+        # Output options
+        output_group = QGroupBox("Output Options")
+        output_layout = QVBoxLayout()
+        
+        file_layout = QHBoxLayout()
+        self.output_filename = QLineEdit("my_cluster.clus")
+        file_layout.addWidget(QLabel("Output filename:"))
+        file_layout.addWidget(self.output_filename)
+        
+        self.output_dir = QLineEdit()
+        # Default to Edac 2 directory
+        default_edac_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../Edac 2"))
+        if os.path.exists(default_edac_path):
+            self.output_dir.setText(default_edac_path)
+            
+        file_layout.addWidget(QLabel("Output directory:"))
+        file_layout.addWidget(self.output_dir)
+        
+        browse_button = QPushButton("Browse")
+        browse_button.clicked.connect(self.browse_cluster_output_dir)
+        file_layout.addWidget(browse_button)
+        
+        output_layout.addLayout(file_layout)
+        
+        # Checkboxes for visualization and EDAC format
+        option_layout = QHBoxLayout()
+        self.create_xyz = QCheckBox("Create XYZ file")
+        self.create_xyz.setChecked(True)
+        self.create_clus = QCheckBox("Create CLUS file")
+        self.create_clus.setChecked(True)
+        option_layout.addWidget(self.create_xyz)
+        option_layout.addWidget(self.create_clus)
+        option_layout.addStretch()
+        
+        output_layout.addLayout(option_layout)
+        output_group.setLayout(output_layout)
+        form_layout.addWidget(output_group)
+        
+        # Set the scroll area widget
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area, 1)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        self.create_cluster_button = QPushButton("Create Cluster")
+        self.create_cluster_button.clicked.connect(self.create_cluster)
+        button_layout.addWidget(self.create_cluster_button)
+        
+        self.view_cluster_button = QPushButton("View Cluster")
+        self.view_cluster_button.clicked.connect(self.view_cluster)
+        self.view_cluster_button.setEnabled(False)  # Disabled until cluster is created
+        button_layout.addWidget(self.view_cluster_button)
+        
+        self.use_in_edac_button = QPushButton("Use in EDAC")
+        self.use_in_edac_button.clicked.connect(self.use_in_edac)
+        self.use_in_edac_button.setEnabled(False)  # Disabled until cluster is created
+        button_layout.addWidget(self.use_in_edac_button)
+        
+        layout.addLayout(button_layout)
+        
+        # Console output
+        console_group = QGroupBox("Console Output")
+        console_layout = QVBoxLayout()
+        self.cluster_console = QTextEdit()
+        self.cluster_console.setReadOnly(True)
+        console_layout.addWidget(self.cluster_console)
+        console_group.setLayout(console_layout)
+        layout.addWidget(console_group)
+        
+        self.cluster_tab.setLayout(layout)
+        
+        # Keep track of created files
+        self.created_xyz_file = ""
+        self.created_clus_file = ""
+    
+    def apply_lattice_preset(self, index):
+        """Apply preset lattice vectors"""
+        if index == 0:  # Custom
+            return
+        
+        # FCC lattice
+        if index == 1:
+            a = 3.52  # Default value, can be changed by user
+            vectors = [
+                [a, 0, 0],
+                [0, a, 0],
+                [0, 0, a]
+            ]
+        # BCC lattice
+        elif index == 2:
+            a = 3.52
+            vectors = [
+                [a, 0, 0],
+                [0, a, 0],
+                [0, 0, a]
+            ]
+        # Diamond lattice
+        elif index == 3:
+            a = 3.52
+            vectors = [
+                [a, 0, 0],
+                [0, a, 0],
+                [0, 0, a]
+            ]
+        # Hexagonal lattice
+        elif index == 4:
+            a = 3.52
+            c = 5.0
+            vectors = [
+                [a, 0, 0],
+                [-a/2, a*0.866, 0],
+                [0, 0, c]
+            ]
+        
+        # Apply values to the UI
+        for i in range(3):
+            for j in range(3):
+                self.lattice_vectors[i][j].setText(f"{vectors[i][j]:.3f}")
+    
+    def apply_surface_preset(self, index):
+        """Apply preset Miller indices"""
+        if index == 0:  # Custom
+            return
+        
+        # (100) surface
+        if index == 1:
+            indices = [1, 0, 0]
+        # (110) surface
+        elif index == 2:
+            indices = [1, 1, 0]
+        # (111) surface
+        elif index == 3:
+            indices = [1, 1, 1]
+        # (211) surface
+        elif index == 4:
+            indices = [2, 1, 1]
+        
+        # Apply values to the UI
+        for i in range(3):
+            self.miller_indices[i].setText(str(indices[i]))
+    
+    def apply_basis_preset(self, index):
+        """Apply preset basis atoms"""
+        if index == 0:  # Custom
+            return
+        
+        # Monatomic
+        if index == 1:
+            self.num_basis_atoms.setValue(1)
+            self.update_basis_table()
+            self.basis_table.setItem(0, 0, QTableWidgetItem("Ni"))
+            self.basis_table.setItem(0, 1, QTableWidgetItem("0.0"))
+            self.basis_table.setItem(0, 2, QTableWidgetItem("0.0"))
+            self.basis_table.setItem(0, 3, QTableWidgetItem("0.0"))
+        
+        # NaCl structure
+        elif index == 2:
+            self.num_basis_atoms.setValue(2)
+            self.update_basis_table()
+            self.basis_table.setItem(0, 0, QTableWidgetItem("Na"))
+            self.basis_table.setItem(0, 1, QTableWidgetItem("0.0"))
+            self.basis_table.setItem(0, 2, QTableWidgetItem("0.0"))
+            self.basis_table.setItem(0, 3, QTableWidgetItem("0.0"))
+            self.basis_table.setItem(1, 0, QTableWidgetItem("Cl"))
+            self.basis_table.setItem(1, 1, QTableWidgetItem("0.5"))
+            self.basis_table.setItem(1, 2, QTableWidgetItem("0.5"))
+            self.basis_table.setItem(1, 3, QTableWidgetItem("0.5"))
+        
+        # ZnS (zinc blende) structure
+        elif index == 3:
+            self.num_basis_atoms.setValue(2)
+            self.update_basis_table()
+            self.basis_table.setItem(0, 0, QTableWidgetItem("Zn"))
+            self.basis_table.setItem(0, 1, QTableWidgetItem("0.0"))
+            self.basis_table.setItem(0, 2, QTableWidgetItem("0.0"))
+            self.basis_table.setItem(0, 3, QTableWidgetItem("0.0"))
+            self.basis_table.setItem(1, 0, QTableWidgetItem("S"))
+            self.basis_table.setItem(1, 1, QTableWidgetItem("0.25"))
+            self.basis_table.setItem(1, 2, QTableWidgetItem("0.25"))
+            self.basis_table.setItem(1, 3, QTableWidgetItem("0.25"))
+    
+    def update_basis_table(self):
+        """Update the basis atom table when the number of atoms changes"""
+        new_count = self.num_basis_atoms.value()
+        current_rows = self.basis_table.rowCount()
+        
+        if new_count > current_rows:
+            # Add new rows
+            for i in range(current_rows, new_count):
+                self.basis_table.insertRow(i)
+                self.basis_table.setItem(i, 0, QTableWidgetItem("Ni"))
+                self.basis_table.setItem(i, 1, QTableWidgetItem("0.0"))
+                self.basis_table.setItem(i, 2, QTableWidgetItem("0.0"))
+                self.basis_table.setItem(i, 3, QTableWidgetItem("0.0"))
+        elif new_count < current_rows:
+            # Remove excess rows
+            for i in range(current_rows - 1, new_count - 1, -1):
+                self.basis_table.removeRow(i)
+    
+    def browse_cluster_output_dir(self):
+        """Browse for output directory for cluster files"""
+        dir_path = QFileDialog.getExistingDirectory(
+            self,
+            "Select Output Directory",
+            self.output_dir.text() if self.output_dir.text() else os.path.dirname(os.path.abspath(__file__))
+        )
+        if dir_path:
+            self.output_dir.setText(dir_path)
+    
+    def create_cluster(self):
+        """Create a cluster using the cluster2edac program"""
+        # Disable button during processing
+        self.create_cluster_button.setEnabled(False)
+        self.cluster_console.clear()
+        self.cluster_console.append("Creating cluster structure...")
+        
+        # Prepare input file
+        input_text = ""
+        
+        # Add lattice vectors
+        for i in range(3):
+            for j in range(3):
+                input_text += f"{self.lattice_vectors[i][j].text()} "
+            input_text += "\n"
+        
+        # Add Miller indices
+        for i in range(3):
+            input_text += f"{self.miller_indices[i].text()} "
+        input_text += "\n"
+        
+        # Add origin
+        for i in range(3):
+            input_text += f"{self.origin_coords[i].text()} "
+        input_text += "\n"
+        
+        # Add number of basis atoms
+        input_text += f"{self.num_basis_atoms.value()}\n"
+        
+        # Add basis atoms
+        for i in range(self.num_basis_atoms.value()):
+            element = self.basis_table.item(i, 0).text()
+            x = self.basis_table.item(i, 1).text()
+            y = self.basis_table.item(i, 2).text()
+            z = self.basis_table.item(i, 3).text()
+            input_text += f"{element} {x} {y} {z}\n"
+        
+        # Add other parameters
+        input_text += f"{self.lattice_constant.text()}\n"
+        input_text += f"{self.radius.text()}\n"
+        input_text += f"{self.depth.text()}\n"
+        input_text += f"{self.zsurf.text()}\n"
+        
+        # Create temporary input file
+        temp_input = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_cluster_input.txt")
+        with open(temp_input, "w") as f:
+            f.write(input_text)
+        
+        # Get path to cluster2edac executable
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        cluster2edac_path = os.path.abspath(os.path.join(script_dir, "../../cluster2edac"))
+        
+        # Check if executable exists
+        if not os.path.exists(cluster2edac_path):
+            self.cluster_console.append(f"Error: cluster2edac executable not found at {cluster2edac_path}")
+            self.create_cluster_button.setEnabled(True)
+            return
+        
+        # Determine output file names
+        output_dir = self.output_dir.text()
+        if not os.path.exists(output_dir):
+            try:
+                os.makedirs(output_dir)
+            except Exception as e:
+                self.cluster_console.append(f"Error creating output directory: {e}")
+                self.create_cluster_button.setEnabled(True)
+                return
+        
+        base_name = os.path.splitext(self.output_filename.text())[0]
+        xyz_output = os.path.join(output_dir, f"{base_name}.xyz")
+        clus_output = os.path.join(output_dir, f"{base_name}.clus")
+        
+        # Create a temporary directory for processing
+        temp_dir = os.path.join(script_dir, "temp_cluster")
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+        
+        # Change to temp directory for processing
+        original_dir = os.getcwd()
+        os.chdir(temp_dir)
+        
+        # Run cluster2edac with the input file
+        try:
+            cmd = f"cat '{temp_input}' | '{cluster2edac_path}'"
+            self.cluster_console.append(f"Running command: {cmd}")
+            
+            self.cluster_worker = WorkerThread(cmd)
+            self.cluster_worker.finished.connect(lambda success, output: self.handle_cluster_creation(success, output, xyz_output, clus_output, original_dir))
+            self.cluster_worker.start()
+            
+        except Exception as e:
+            self.cluster_console.append(f"Error running cluster2edac: {e}")
+            os.chdir(original_dir)
+            self.create_cluster_button.setEnabled(True)
+    
+    def handle_cluster_creation(self, success, output, xyz_output, clus_output, original_dir):
+        """Handle the completion of the cluster creation process"""
+        try:
+            # Check if successful
+            if success:
+                self.cluster_console.append("Cluster creation process completed")
+                self.cluster_console.append(output[:500] + ("..." if len(output) > 500 else ""))
+                
+                # Check if output files were created
+                if os.path.exists("cluster.xyz") and os.path.exists("xxx.clus"):
+                    # Save the created files
+                    if self.create_xyz.isChecked():
+                        shutil.copy2("cluster.xyz", xyz_output)
+                        self.created_xyz_file = xyz_output
+                        self.cluster_console.append(f"XYZ file saved to: {xyz_output}")
+                    
+                    if self.create_clus.isChecked():
+                        shutil.copy2("xxx.clus", clus_output)
+                        self.created_clus_file = clus_output
+                        self.cluster_console.append(f"CLUS file saved to: {clus_output}")
+                    
+                    # Enable view and use buttons
+                    self.view_cluster_button.setEnabled(True)
+                    self.use_in_edac_button.setEnabled(True)
+                else:
+                    self.cluster_console.append("Error: Output files not created by cluster2edac")
+            else:
+                self.cluster_console.append(f"Error running cluster2edac: {output}")
+        
+        except Exception as e:
+            self.cluster_console.append(f"Error handling cluster creation: {e}")
+        
+        finally:
+            # Clean up temporary files
+            try:
+                if os.path.exists("cluster.xyz"):
+                    os.remove("cluster.xyz")
+                if os.path.exists("xxx.clus"):
+                    os.remove("xxx.clus")
+            except Exception:
+                pass
+            
+            # Return to original directory
+            os.chdir(original_dir)
+            
+            # Re-enable button
+            self.create_cluster_button.setEnabled(True)
+    
+    def view_cluster(self):
+        """View the created cluster using an external viewer"""
+        if not self.created_xyz_file or not os.path.exists(self.created_xyz_file):
+            QMessageBox.warning(self, "Error", "No cluster XYZ file available to view")
+            return
+        
+        # Try to open with system default viewer
+        try:
+            if sys.platform == "darwin":  # macOS
+                subprocess.run(["open", self.created_xyz_file])
+            elif sys.platform == "win32":  # Windows
+                os.startfile(self.created_xyz_file)
+            else:  # Linux
+                subprocess.run(["xdg-open", self.created_xyz_file])
+            
+            self.cluster_console.append(f"Opened {self.created_xyz_file} with system viewer")
+        except Exception as e:
+            self.cluster_console.append(f"Error opening viewer: {e}")
+            QMessageBox.warning(self, "Error", f"Could not open viewer: {e}")
+    
+    def use_in_edac(self):
+        """Set the created cluster file for use in the EDAC tab"""
+        if not self.created_clus_file or not os.path.exists(self.created_clus_file):
+            QMessageBox.warning(self, "Error", "No cluster CLUS file available to use in EDAC")
+            return
+        
+        # Set the file path in the EDAC tab
+        self.edac_cluster_path.setText(self.created_clus_file)
+        
+        # Switch to the EDAC tab
+        self.tabs.setCurrentIndex(3)  # Index 3 is the EDAC tab
+        
+        self.cluster_console.append(f"Set {self.created_clus_file} for use in EDAC tab")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
