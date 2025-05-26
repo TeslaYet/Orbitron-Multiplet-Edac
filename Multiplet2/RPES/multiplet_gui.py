@@ -41,6 +41,7 @@ class MultipletGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
+        self.check_linux_binaries()
         
     def initUI(self):
         self.setWindowTitle('Orbitron-Multiplet-Edac')
@@ -73,6 +74,172 @@ class MultipletGUI(QMainWindow):
         self.setup_edac_tab()
         self.setup_viz_tab()
         self.setup_cluster_tab()  # Setup the new cluster tab
+    
+    def check_linux_binaries(self):
+        """Check if we're on Linux and compile binaries if needed"""
+        if sys.platform != "linux":
+            return
+            
+        missing_binaries = []
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Create linux-bin directory if it doesn't exist
+        linux_bin_dir = os.path.join(script_dir, "linux-bin")
+        os.makedirs(linux_bin_dir, exist_ok=True)
+        
+        # Check multiplet binary
+        multiplet_path = os.path.join(script_dir, "multiplet")
+        if not os.path.exists(multiplet_path) or not os.access(multiplet_path, os.X_OK):
+            missing_binaries.append("multiplet")
+            
+        # Check EDAC binaries
+        edac_dir = os.path.abspath(os.path.join(script_dir, "../../Edac 2"))
+        if os.path.exists(edac_dir):
+            for binary in ["rpededac", "intens_stereo_hot", "intens_stereo_rb"]:
+                binary_path = os.path.join(edac_dir, binary)
+                if not os.path.exists(binary_path) or not os.access(binary_path, os.X_OK):
+                    missing_binaries.append(binary)
+        
+        # Check cluster2edac
+        cluster2edac_path = os.path.abspath(os.path.join(script_dir, "../../cluster2edac"))
+        if not os.path.exists(cluster2edac_path) or not os.access(cluster2edac_path, os.X_OK):
+            missing_binaries.append("cluster2edac")
+            
+        if missing_binaries:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Information)
+            msg.setWindowTitle("Linux Binary Compilation")
+            msg.setText("Missing executable binaries detected.")
+            msg.setInformativeText(f"The following binaries need to be compiled for Linux: {', '.join(missing_binaries)}\n\nWould you like to compile them now?")
+            msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            result = msg.exec()
+            
+            if result == QMessageBox.StandardButton.Yes:
+                self.compile_linux_binaries(missing_binaries)
+    
+    def compile_linux_binaries(self, missing_binaries):
+        """Compile the necessary binaries for Linux"""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        edac_dir = os.path.abspath(os.path.join(script_dir, "../../Edac 2"))
+        root_dir = os.path.abspath(os.path.join(script_dir, "../.."))
+        
+        progress_dialog = QMessageBox()
+        progress_dialog.setIcon(QMessageBox.Icon.Information)
+        progress_dialog.setWindowTitle("Compiling Binaries")
+        progress_dialog.setText("Compiling binaries...")
+        progress_dialog.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        progress_dialog.show()
+        QApplication.processEvents()
+        
+        compile_output = "Binary compilation results:\n\n"
+        success_count = 0
+        
+        # Compile multiplet if needed
+        if "multiplet" in missing_binaries:
+            try:
+                progress_dialog.setText("Compiling multiplet...")
+                QApplication.processEvents()
+                
+                src_dir = os.path.join(script_dir, "src")
+                orig_dir = os.getcwd()
+                
+                if os.path.exists(src_dir):
+                    os.chdir(src_dir)
+                    compile_script = os.path.join(src_dir, "compile")
+                    
+                    # Make sure compile script is executable
+                    if not os.access(compile_script, os.X_OK):
+                        os.chmod(compile_script, 0o755)
+                    
+                    # Run compile script
+                    output = subprocess.check_output("./compile", shell=True, stderr=subprocess.STDOUT)
+                    
+                    # Copy the compiled binary
+                    if os.path.exists("multiplet") and os.access("multiplet", os.X_OK):
+                        shutil.copy2("multiplet", os.path.join(script_dir, "multiplet"))
+                        compile_output += "✓ multiplet compiled successfully\n"
+                        success_count += 1
+                    else:
+                        compile_output += "✗ multiplet compilation failed\n"
+                else:
+                    compile_output += "✗ multiplet source directory not found\n"
+                
+                os.chdir(orig_dir)
+            except Exception as e:
+                compile_output += f"✗ multiplet compilation error: {str(e)}\n"
+        
+        # Compile EDAC binaries if needed
+        edac_binaries = [b for b in missing_binaries if b in ["rpededac", "intens_stereo_hot", "intens_stereo_rb"]]
+        if edac_binaries and os.path.exists(edac_dir):
+            orig_dir = os.getcwd()
+            os.chdir(edac_dir)
+            
+            for binary in edac_binaries:
+                try:
+                    progress_dialog.setText(f"Compiling {binary}...")
+                    QApplication.processEvents()
+                    
+                    source_file = f"{binary}.c"
+                    if os.path.exists(source_file):
+                        if binary in ["intens_stereo_hot", "intens_stereo_rb"]:
+                            cmd = f"gcc -o {binary} {source_file} -lm"
+                        else:
+                            cmd = f"gcc -o {binary} {source_file}"
+                            
+                        output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+                        
+                        # Make executable
+                        os.chmod(binary, 0o755)
+                        
+                        compile_output += f"✓ {binary} compiled successfully\n"
+                        success_count += 1
+                    else:
+                        compile_output += f"✗ {binary} source file not found\n"
+                except Exception as e:
+                    compile_output += f"✗ {binary} compilation error: {str(e)}\n"
+            
+            os.chdir(orig_dir)
+        
+        # Compile cluster2edac if needed
+        if "cluster2edac" in missing_binaries:
+            try:
+                progress_dialog.setText("Compiling cluster2edac...")
+                QApplication.processEvents()
+                
+                orig_dir = os.getcwd()
+                os.chdir(root_dir)
+                
+                if os.path.exists("cluster2edac.c"):
+                    cmd = "gcc -o cluster2edac cluster2edac.c -lm"
+                    output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+                    
+                    # Make executable
+                    os.chmod("cluster2edac", 0o755)
+                    
+                    compile_output += "✓ cluster2edac compiled successfully\n"
+                    success_count += 1
+                else:
+                    compile_output += "✗ cluster2edac source file not found\n"
+                
+                os.chdir(orig_dir)
+            except Exception as e:
+                compile_output += f"✗ cluster2edac compilation error: {str(e)}\n"
+        
+        progress_dialog.hide()
+        
+        # Show results
+        result_dialog = QMessageBox()
+        if success_count == len(missing_binaries):
+            result_dialog.setIcon(QMessageBox.Icon.Information)
+            result_dialog.setWindowTitle("Compilation Successful")
+            result_dialog.setText(f"All {success_count} binaries compiled successfully!")
+        else:
+            result_dialog.setIcon(QMessageBox.Icon.Warning)
+            result_dialog.setWindowTitle("Compilation Issues")
+            result_dialog.setText(f"Compiled {success_count} of {len(missing_binaries)} binaries")
+        
+        result_dialog.setDetailedText(compile_output)
+        result_dialog.exec()
     
     def setup_input_tab(self):
         # Main layout
@@ -763,22 +930,77 @@ class MultipletGUI(QMainWindow):
         # Disable run button during execution
         self.run_button.setEnabled(False)
         
-        # Get path to multiplet executable (assumed to be in same directory as this script)
+        # Get path to multiplet executable (with platform detection)
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        multiplet_path = os.path.join(script_dir, "multiplet")
+        
+        if sys.platform == "darwin":  # macOS
+            multiplet_path = os.path.join(script_dir, "multiplet")
+        elif sys.platform == "linux":  # Linux
+            # Try looking for multiplet in several locations
+            possible_paths = [
+                os.path.join(script_dir, "multiplet"),
+                os.path.join(script_dir, "src", "multiplet"),
+                os.path.join(script_dir, "linux-bin", "multiplet"),
+                "/usr/local/bin/multiplet"
+            ]
+            
+            multiplet_path = None
+            for path in possible_paths:
+                if os.path.exists(path) and os.access(path, os.X_OK):
+                    multiplet_path = path
+                    break
+            
+            if not multiplet_path:
+                self.console_output.append("Error: Could not find multiplet executable. Please compile it first.")
+                self.console_output.append("Try running: cd Multiplet2/RPES/src && ./compile")
+                self.run_button.setEnabled(True)
+                return
+        else:  # Windows or other
+            multiplet_path = os.path.join(script_dir, "multiplet.exe" if sys.platform == "win32" else "multiplet")
+        
+        # Verify the executable exists and is executable
+        if not os.path.exists(multiplet_path):
+            self.console_output.append(f"Error: Multiplet executable not found at {multiplet_path}")
+            self.run_button.setEnabled(True)
+            return
+            
+        if not os.access(multiplet_path, os.X_OK):
+            self.console_output.append(f"Error: Multiplet executable is not executable. Try: chmod +x {multiplet_path}")
+            self.run_button.setEnabled(True)
+            return
+            
+        # Log what we're about to do
+        self.console_output.append(f"Using multiplet executable: {multiplet_path}")
+        self.console_output.append(f"Input file: {input_file}")
+        self.console_output.append(f"Output directory: {output_dir}")
+        self.console_output.append("Starting multiplet calculation...")
         
         # Change to output directory
-        os.chdir(output_dir)
+        try:
+            original_dir = os.getcwd()
+            os.chdir(output_dir)
+            self.console_output.append(f"Changed to directory: {output_dir}")
+        except Exception as e:
+            self.console_output.append(f"Error changing to output directory: {e}")
+            self.run_button.setEnabled(True)
+            return
         
         # Start the process
-        self.process.start(multiplet_path, [])
-        
-        # Send input file content to process stdin
-        with open(input_file, 'r') as f:
-            input_content = f.read()
-        
-        self.process.write(input_content.encode())
-        self.process.closeWriteChannel()
+        try:
+            self.process.start(multiplet_path, [])
+            
+            # Send input file content to process stdin
+            with open(input_file, 'r') as f:
+                input_content = f.read()
+            
+            self.process.write(input_content.encode())
+            self.process.closeWriteChannel()
+            
+            self.console_output.append("Process started successfully, sending input...")
+        except Exception as e:
+            self.console_output.append(f"Error starting process: {e}")
+            os.chdir(original_dir)  # Return to original directory
+            self.run_button.setEnabled(True)
     
     def handle_stdout(self):
         """Handle standard output from the process"""
@@ -940,48 +1162,34 @@ class MultipletGUI(QMainWindow):
             rpesalms_edac = self.edac_rpesalms_edac_path.text()
             edac_target = os.path.join(os.getcwd(), "rpesalms.edac")
             
-            self.edac_console_output.append(f"Copying {rpesalms_edac} to {edac_target}")
-            try:
-                # Check if source and destination are the same file
-                if os.path.abspath(rpesalms_edac) == os.path.abspath(edac_target):
-                    # Create a temporary copy first, then replace the original
-                    temp_path = os.path.join(os.getcwd(), "temp_rpesalms.edac")
-                    shutil.copy2(rpesalms_edac, temp_path)
-                    os.remove(edac_target)
-                    os.rename(temp_path, edac_target)
-                else:
-                    # Regular copy
-                    shutil.copy2(rpesalms_edac, edac_target)
-                self.edac_console_output.append("File copied successfully")
-            except Exception as e:
-                self.edac_console_output.append(f"Error handling rpesalms.edac file: {e}")
-                os.chdir(original_dir)  # Return to original directory
-                self.run_edac_button.setEnabled(True)
-                return
+            # Check if source and destination are the same file
+            if os.path.abspath(rpesalms_edac) == os.path.abspath(edac_target):
+                # Create a temporary copy first, then replace the original
+                temp_path = os.path.join(os.getcwd(), "temp_rpesalms.edac")
+                shutil.copy2(rpesalms_edac, temp_path)
+                os.remove(edac_target)
+                os.rename(temp_path, edac_target)
+            else:
+                # Regular copy
+                shutil.copy2(rpesalms_edac, edac_target)
+            self.edac_console_output.append("rpesalms.edac file copied successfully")
             
             # Copy the selected cluster file to the EDAC directory
             cluster_file = self.edac_cluster_path.text()
             cluster_filename = os.path.basename(cluster_file)
             cluster_target = os.path.join(os.getcwd(), cluster_filename)
             
-            self.edac_console_output.append(f"Copying {cluster_file} to {cluster_target}")
-            try:
-                # Check if source and destination are the same file
-                if os.path.abspath(cluster_file) == os.path.abspath(cluster_target):
-                    # Create a temporary copy first, then replace the original
-                    temp_path = os.path.join(os.getcwd(), f"temp_{cluster_filename}")
-                    shutil.copy2(cluster_file, temp_path)
-                    os.remove(cluster_target)
-                    os.rename(temp_path, cluster_target)
-                else:
-                    # Regular copy
-                    shutil.copy2(cluster_file, cluster_target)
-                self.edac_console_output.append("File copied successfully")
-            except Exception as e:
-                self.edac_console_output.append(f"Error handling cluster file: {e}")
-                os.chdir(original_dir)  # Return to original directory
-                self.run_edac_button.setEnabled(True)
-                return
+            # Check if source and destination are the same file
+            if os.path.abspath(cluster_file) == os.path.abspath(cluster_target):
+                # Create a temporary copy first, then replace the original
+                temp_path = os.path.join(os.getcwd(), f"temp_{cluster_filename}")
+                shutil.copy2(cluster_file, temp_path)
+                os.remove(cluster_target)
+                os.rename(temp_path, cluster_target)
+            else:
+                # Regular copy
+                shutil.copy2(cluster_file, cluster_target)
+            self.edac_console_output.append("Cluster file copied successfully")
             
             # Create rpededac input file - like in the EDAC GUI
             input_file = "rpededac_input.txt"
@@ -1005,20 +1213,44 @@ class MultipletGUI(QMainWindow):
             # Run rpededac like in the EDAC GUI
             self.edac_console_output.append("\nRunning rpededac (which will run EDAC multiple times)...")
             
-            # Platform-specific executable name
+            # Platform-specific executable name and command
             if sys.platform == "darwin":  # macOS
                 rpededac_cmd = "./rpededac"
-            else:  # Linux or Windows
-                # Check if rpededac.exe exists
+                cmd = f"cat {input_file} | {rpededac_cmd}"
+            elif sys.platform == "linux":  # Linux
+                # Try to find the rpededac executable
+                possible_paths = [
+                    "./rpededac",
+                    "rpededac",
+                    "/usr/local/bin/rpededac"
+                ]
+                
+                rpededac_cmd = None
+                for path in possible_paths:
+                    if os.path.exists(path) and os.access(path, os.X_OK):
+                        rpededac_cmd = path
+                        break
+                
+                if not rpededac_cmd:
+                    self.edac_console_output.append("Error: Could not find rpededac executable. Please compile it first.")
+                    os.chdir(original_dir)
+                    self.run_edac_button.setEnabled(True)
+                    return
+                
+                # On Linux, we'll use a slightly different approach for piping
+                cmd = f"cat {input_file} | {rpededac_cmd}"
+            else:  # Windows
                 if os.path.exists("rpededac.exe"):
-                    rpededac_cmd = "./rpededac.exe"
+                    rpededac_cmd = "rpededac.exe"
                 else:
-                    rpededac_cmd = "./rpededac"
+                    rpededac_cmd = "rpededac"
+                
+                # Windows might need different piping syntax
+                cmd = f"type {input_file} | {rpededac_cmd}"
             
-            # Use cat to pipe the input file to rpededac - exactly like the EDAC GUI
-            cmd = f"cat {input_file} | {rpededac_cmd}"
             self.edac_console_output.append(f"Executing command: {cmd}")
             
+            # Run the command in a worker thread
             self.edac_worker = WorkerThread(cmd)
             self.edac_worker.finished.connect(self.edac_worker_finished)
             self.edac_worker.start()
@@ -1283,7 +1515,13 @@ class MultipletGUI(QMainWindow):
         # List files in directory to debug
         try:
             dir_files = os.listdir(self.viz_dir_path.text())
-            executable_files = [f for f in dir_files if f.startswith("intens_stereo")]
+            # Look for visualization executables with platform awareness
+            if sys.platform == "darwin" or sys.platform == "linux":  # macOS or Linux
+                executable_files = [f for f in dir_files if (f.startswith("intens_stereo") and 
+                                                            (os.access(os.path.join(self.viz_dir_path.text(), f), os.X_OK)))]
+            else:  # Windows
+                executable_files = [f for f in dir_files if f.startswith("intens_stereo")]
+            
             self.viz_status_label.setText(f"Status: Found visualization files: {executable_files}")
         except Exception as e:
             self.viz_status_label.setText(f"Status: Error listing directory: {e}")
@@ -1293,26 +1531,43 @@ class MultipletGUI(QMainWindow):
         # Determine which visualization program to use
         if self.viz_type_combo.currentIndex() == 0:
             # Hot colormap
-            viz_prog = "intens_stereo_hot"
+            viz_prog_base = "intens_stereo_hot"
         else:
             # Red-blue colormap
-            viz_prog = "intens_stereo_rb"
+            viz_prog_base = "intens_stereo_rb"
         
-        # Find the executable with explicit paths
+        # Find the executable with explicit paths and platform awareness
         found_executable = False
         executable_path = ""
         
-        # Check for the executable with exact name
-        if viz_prog in executable_files:
-            executable_path = os.path.join(self.viz_dir_path.text(), viz_prog)
-            found_executable = True
-        # Check for executable with .exe extension
-        elif f"{viz_prog}.exe" in executable_files:
-            executable_path = os.path.join(self.viz_dir_path.text(), f"{viz_prog}.exe")
-            found_executable = True
-            
+        # Platform-specific executable search
+        if sys.platform == "darwin":  # macOS
+            possible_exes = [viz_prog_base, f"{viz_prog_base}.exe"]
+        elif sys.platform == "linux":  # Linux
+            possible_exes = [viz_prog_base, f"./{viz_prog_base}"]
+        else:  # Windows
+            possible_exes = [f"{viz_prog_base}.exe", viz_prog_base]
+        
+        # Check each possible executable name
+        for exe in possible_exes:
+            path = os.path.join(self.viz_dir_path.text(), exe)
+            if os.path.exists(path) and (sys.platform == "win32" or os.access(path, os.X_OK)):
+                executable_path = path
+                found_executable = True
+                break
+        
+        # If not found, try looking in common system locations on Linux
+        if not found_executable and sys.platform == "linux":
+            for path in [f"/usr/local/bin/{viz_prog_base}", f"/usr/bin/{viz_prog_base}"]:
+                if os.path.exists(path) and os.access(path, os.X_OK):
+                    executable_path = path
+                    found_executable = True
+                    break
+        
         if not found_executable:
-            error_msg = f"Could not find '{viz_prog}' or '{viz_prog}.exe' in '{self.viz_dir_path.text()}'. Available files: {executable_files}"
+            error_msg = f"Could not find executable for '{viz_prog_base}' in '{self.viz_dir_path.text()}'."
+            if sys.platform == "linux":
+                error_msg += f"\nTry: cd '{self.viz_dir_path.text()}' && gcc -o {viz_prog_base} {viz_prog_base}.c -lm"
             self.viz_status_label.setText(f"Status: Error - {error_msg}")
             QMessageBox.critical(self, "Error", error_msg)
             return
@@ -1332,10 +1587,17 @@ class MultipletGUI(QMainWindow):
             self.viz_status_label.setText(f"Status: Changed to directory: '{os.getcwd()}'")
             
             # Build command - use relative paths since we're in the correct directory
-            if sys.platform == "darwin":  # macOS
-                cmd = f"./{os.path.basename(executable_path)} {selected_file}"
-            else:  # Linux
-                cmd = f"./{os.path.basename(executable_path)} {selected_file}"
+            # Platform-specific command construction
+            if sys.platform == "darwin" or sys.platform == "linux":  # macOS or Linux
+                # Use full path for executable if it's not in the current directory
+                if os.path.dirname(executable_path) == self.viz_dir_path.text():
+                    # Executable is in current directory, use relative path
+                    cmd = f"./{os.path.basename(executable_path)} {selected_file}"
+                else:
+                    # Executable is elsewhere, use full path
+                    cmd = f"{executable_path} {selected_file}"
+            else:  # Windows
+                cmd = f"{os.path.basename(executable_path)} {selected_file}"
             
             self.viz_status_label.setText(f"Status: Running command: '{cmd}' in '{os.getcwd()}'")
             self.generate_btn.setEnabled(False)
