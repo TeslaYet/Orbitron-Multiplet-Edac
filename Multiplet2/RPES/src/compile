@@ -1,1 +1,23 @@
-gfortran -c labla.f ; gcc -c *.c ; gfortran *.o -o multiplet -framework Accelerate
+#!/bin/bash
+# Detect the operating system
+OS=$(uname)
+
+if [ "$OS" == "Darwin" ]; then
+    # macOS compilation
+    echo "Compiling for macOS..."
+    gfortran -c labla.f 
+    gcc -c *.c 
+    gfortran *.o -o multiplet -framework Accelerate
+elif [ "$OS" == "Linux" ]; then
+    # Linux compilation
+    echo "Compiling for Linux..."
+    gfortran -c labla.f 
+    gcc -c *.c 
+    gfortran *.o -o multiplet -llapack -lblas
+else
+    # Other OS
+    echo "Unsupported OS. Please compile manually."
+    exit 1
+fi
+
+echo "Compilation complete."
