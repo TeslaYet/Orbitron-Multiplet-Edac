@@ -16,6 +16,8 @@ This branch includes the following Linux-specific changes:
 
 5. **Path Handling**: Fixed path issues that could cause problems on Linux file systems.
 
+6. **Automatic Binary Compilation**: The GUI now automatically detects missing binaries and offers to compile them for you.
+
 ## ⚠️ Important: Binary Compatibility Issue ⚠️
 
 The repository may contain pre-compiled binaries for macOS that **will not work on Linux**. If you try to run these directly, you'll get an "Exec format error" like:
@@ -32,8 +34,9 @@ You **must** compile these binaries on your Linux system:
 
 1. `multiplet` - The main calculation engine
 2. `cluster2edac` - The crystal structure generator
-3. `rpededac` - For EDAC simulations
-4. `intens_stereo_hot` and `intens_stereo_rb` - Visualization tools
+3. `edac` - The main EDAC calculation engine
+4. `rpededac` - For EDAC simulations
+5. `intens_stereo_hot` and `intens_stereo_rb` - Visualization tools
 
 The GUI has been updated to provide better error messages if these executables are missing or incompatible.
 
@@ -91,9 +94,16 @@ gcc -o cluster2edac cluster2edac.c -lm
 
 # Compile EDAC tools
 cd "Edac 2"
+# Compile main EDAC executable
+gcc -o edac edac.c -lm
+# Compile RPES-EDAC interface
 gcc -o rpededac rpededac.c
+# Compile visualization tools
 gcc -o intens_stereo_hot intens_stereo_hot.c -lm
 gcc -o intens_stereo_rb intens_stereo_rb.c -lm
+
+# Make all executables executable
+chmod +x edac rpededac intens_stereo_hot intens_stereo_rb
 ```
 
 ### Running the Application
