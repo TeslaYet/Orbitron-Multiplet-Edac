@@ -34,9 +34,9 @@ You **must** compile these binaries on your Linux system:
 
 1. `multiplet` - The main calculation engine
 2. `cluster2edac` - The crystal structure generator
-3. `edac` - The main EDAC calculation engine
-4. `rpededac` - For EDAC simulations
-5. `intens_stereo_hot` and `intens_stereo_rb` - Visualization tools
+3. `edac.exe` - The main EDAC calculation engine (note: Linux version requires .exe extension)
+4. `rpededac.exe` - For EDAC simulations (Linux version should use .exe extension)
+5. `intens_stereo_hot.exe` and `intens_stereo_rb.exe` - Visualization tools (Linux version should use .exe extension)
 
 The GUI has been updated to provide better error messages if these executables are missing or incompatible.
 
@@ -46,7 +46,7 @@ During our analysis, we identified these additional Linux-specific issues that h
 
 1. **File Path Separators**: Linux uses forward slashes (`/`) while Windows uses backslashes (`\`). The code now uses `os.path.join()` consistently to handle this difference.
 
-2. **EDAC Executable Extensions**: According to `linux_compile_instructions.txt`, the EDAC executable on Linux should have an `.exe` extension, unlike on macOS. The code now searches for both variants.
+2. **EDAC Executable Extensions**: According to `linux_compile_instructions.txt`, the EDAC executables on Linux should have an `.exe` extension, unlike on macOS. The code now searches for both variants.
 
 3. **Shell Commands Differences**: Commands like `cat` (Linux/macOS) vs `type` (Windows) are handled differently based on platform.
 
@@ -94,16 +94,20 @@ gcc -o cluster2edac cluster2edac.c -lm
 
 # Compile EDAC tools
 cd "Edac 2"
-# Compile main EDAC executable
-gcc -o edac edac.c -lm
-# Compile RPES-EDAC interface
-gcc -o rpededac rpededac.c
-# Compile visualization tools
-gcc -o intens_stereo_hot intens_stereo_hot.c -lm
-gcc -o intens_stereo_rb intens_stereo_rb.c -lm
+# Compile main EDAC executable (Note: Linux requires .exe extension)
+g++ -O2 edac.cpp -o edac.exe
+# Compile RPES-EDAC interface (Note: Linux requires .exe extension)
+gcc -o rpededac.exe rpededac.c
+# Compile visualization tools (Note: Linux requires .exe extension)
+gcc -o intens_stereo_hot.exe intens_stereo_hot.c -lm
+gcc -o intens_stereo_rb.exe intens_stereo_rb.c -lm
 
 # Make all executables executable
-chmod +x edac rpededac intens_stereo_hot intens_stereo_rb
+chmod +x edac.exe rpededac.exe intens_stereo_hot.exe intens_stereo_rb.exe
+
+# Ensure run_edac.sh script is updated to use edac.exe
+sed -i 's/\.\/edac </\.\/edac\.exe </g' run_edac.sh
+chmod +x run_edac.sh
 ```
 
 ### Running the Application

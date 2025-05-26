@@ -1,6 +1,6 @@
 #!/bin/bash
 # Run edac with input file and kill it after "That's all, folks!" appears
-./edac < edac.in > edac_output.tmp 2>&1 &
+./edac.exe < edac.in > edac_output.tmp 2>&1 &
 pid=$!
 
 # Wait for "That's all, folks!" to appear in the output

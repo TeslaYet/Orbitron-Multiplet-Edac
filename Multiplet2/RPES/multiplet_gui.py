@@ -1221,8 +1221,11 @@ class MultipletGUI(QMainWindow):
                 # Try to find the rpededac executable
                 possible_paths = [
                     "./rpededac",
+                    "./rpededac.exe",
                     "rpededac",
-                    "/usr/local/bin/rpededac"
+                    "rpededac.exe",
+                    "/usr/local/bin/rpededac",
+                    "/usr/local/bin/rpededac.exe"
                 ]
                 
                 rpededac_cmd = None
@@ -1544,7 +1547,12 @@ class MultipletGUI(QMainWindow):
         if sys.platform == "darwin":  # macOS
             possible_exes = [viz_prog_base, f"{viz_prog_base}.exe"]
         elif sys.platform == "linux":  # Linux
-            possible_exes = [viz_prog_base, f"./{viz_prog_base}"]
+            possible_exes = [
+                viz_prog_base, 
+                f"{viz_prog_base}.exe",
+                f"./{viz_prog_base}",
+                f"./{viz_prog_base}.exe"
+            ]
         else:  # Windows
             possible_exes = [f"{viz_prog_base}.exe", viz_prog_base]
         
