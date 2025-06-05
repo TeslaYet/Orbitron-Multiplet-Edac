@@ -312,4 +312,4 @@ gcc --version
 
 ## Contact and Support
 
-For issues with compilation or running the application, please file an issue on the GitHub repository or contact the maintainers. 
+For issues with compilation or running the application, please file an issue on the GitHub repository or write an Email to rayaneyettefti31@gmail.com . 
